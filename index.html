@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAPA 계산기</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #07091A;
+    --s1:       #0C1020;
+    --s2:       #121928;
+    --s3:       #192035;
+    --border:   #222E48;
+    --accent:   #1ECBE8;
+    --accent-d: rgba(30,203,232,0.07);
+    --accent-m: rgba(30,203,232,0.22);
+    --warn:     #F5A623;
+    --good:     #0FBD83;
+    --danger:   #EF4444;
+    --text:     #DCE6F5;
+    --muted:    #57678A;
+    --faint:    #1B2840;
+    --mono: 'Courier New', 'Lucida Console', monospace;
+    --sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  [data-theme="light"] {
+    --bg:       #F4F6FA;
+    --s1:       #FFFFFF;
+    --s2:       #EDF0F7;
+    --s3:       #E2E6F0;
+    --border:   #C8D0E4;
+    --accent:   #0096B4;
+    --accent-d: rgba(0,150,180,0.08);
+    --accent-m: rgba(0,150,180,0.20);
+    --warn:     #D97706;
+    --good:     #059669;
+    --danger:   #DC2626;
+    --text:     #1A2035;
+    --muted:    #5A6480;
+    --faint:    #B0BBCF;
+  }
+
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+
+  /* ── Header ── */
+  .header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 20px; height: 52px;
+    background: var(--s1); position: relative; z-index: 100;
+  }
+  .header::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent) 0%, rgba(30,203,232,.12) 50%, transparent 80%);
+  }
+  .header-wrap { position: sticky; top: 0; z-index: 100; }
+  .header-brand { display: flex; align-items: baseline; gap: 10px; flex-shrink: 0; }
+  .header-brand h1 { font-family: var(--mono); font-size: 14px; font-weight: 700; letter-spacing: 0.12em; color: var(--accent); text-transform: uppercase; }
+  .header-brand span { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; min-width: 148px; display: inline-block; }
+  .header-site {
+    display: flex; align-items: center; gap: 6px;
+    flex: 1; min-width: 0;
+  }
+  .header-site-label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; flex-shrink: 0; }
+  .site-tabs { display: flex; gap: 2px; }
+  .site-tab {
+    background: transparent; border: none; border-bottom: 2px solid transparent;
+    color: var(--muted); font-family: var(--mono); font-size: 12px; font-weight: 600;
+    padding: 0 14px; height: 52px; cursor: pointer; letter-spacing: 0.06em;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .site-tab:hover { color: var(--text); }
+  .site-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .header-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+
+  /* ── 생산목표수량 탭 & 드롭다운 ── */
+  .opn-summary-tab {
+    background: transparent; border: none; border-bottom: 2px solid transparent;
+    color: var(--muted); font-family: var(--mono); font-size: 12px; font-weight: 600;
+    padding: 0 14px; height: 52px; cursor: pointer; letter-spacing: 0.06em;
+    transition: color 0.15s, border-color 0.15s; white-space: nowrap; flex-shrink: 0;
+  }
+  .opn-summary-tab:hover { color: var(--text); }
+  .opn-summary-tab.active { color: var(--warn); border-bottom-color: var(--warn); }
+  .opn-summary-panel {
+    display: none;
+    position: absolute; top: 52px; left: 0; right: 0;
+    background: var(--s1); border-bottom: 2px solid var(--warn);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    z-index: 99; padding: 16px 24px;
+    overflow-x: auto;
+  }
+  .opn-summary-panel.open { display: block; }
+  .opn-summary-grid {
+    display: flex; gap: 0; overflow-x: auto;
+  }
+  .opn-summary-site {
+    flex: 1; min-width: 160px; padding: 0 20px 0 0;
+    border-right: 1px solid var(--border);
+  }
+  .opn-summary-site:last-child { border-right: none; padding-right: 0; }
+  .opn-summary-site-header {
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; color: var(--accent); padding-bottom: 8px;
+    border-bottom: 1px solid var(--border); margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .opn-summary-site-header span { font-size: 9px; color: var(--muted); font-weight: 400; letter-spacing: 0; }
+  .opn-summary-table {
+    border-collapse: collapse; font-family: var(--mono); font-size: 12px; width: 100%;
+  }
+  .opn-summary-table th {
+    text-align: left; color: var(--muted); font-size: 9px; letter-spacing: 0.06em;
+    padding: 2px 8px 5px 0; border-bottom: 1px solid var(--faint); font-weight: 600;
+  }
+  .opn-summary-table th.r { text-align: right; }
+  .opn-summary-table td {
+    padding: 5px 8px 5px 0; border-bottom: 1px solid var(--faint);
+    color: var(--text); font-size: 11px; white-space: nowrap;
+  }
+  .opn-summary-table td.r { text-align: right; font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 700; }
+  .opn-summary-table tr:last-child td { border-bottom: none; }
+  .opn-summary-site-sub {
+    margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border);
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+    display: flex; justify-content: space-between;
+  }
+  .opn-summary-site-sub strong { color: var(--warn); font-variant-numeric: tabular-nums; }
+  .opn-summary-empty { color: var(--faint); font-size: 11px; font-style: italic; padding: 4px 0; }
+  .opn-summary-total {
+    margin-top: 12px; padding-top: 10px; border-top: 2px solid var(--border);
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    display: flex; gap: 8px; align-items: baseline;
+  }
+  .opn-summary-total strong { color: var(--warn); font-size: 18px; font-variant-numeric: tabular-nums; }
+
+  /* ── Theme toggle ── */
+  .theme-toggle {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--s2); border: 1px solid var(--border);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 15px; transition: background 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+  }
+  .theme-toggle:hover { background: var(--s3); border-color: var(--accent); }
+  .header-site-btn {
+    background: var(--s2); border: 1px solid var(--border); border-radius: 3px;
+    color: var(--muted); font-family: var(--mono); font-size: 11px;
+    padding: 4px 10px; cursor: pointer; white-space: nowrap; height: 28px;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    letter-spacing: 0.03em; flex-shrink: 0; text-align: center;
+  }
+  #sl-load   { min-width: 68px; }
+  #sl-save   { min-width: 52px; }
+  #sl-saveas { min-width: 116px; }
+  #opn-summary-tab { min-width: 124px; }
+  .header-site-btn:hover:not(:disabled) { background: var(--s3); border-color: var(--accent); color: var(--accent); }
+  .header-site-btn:disabled { opacity: 0.35; cursor: default; }
+  .header-site-btn.save  { border-color: rgba(16,185,129,0.35); color: var(--good); }
+  .header-site-btn.save:hover:not(:disabled) { background: rgba(16,185,129,0.08); border-color: var(--good); }
+  .sl-save-flash { animation: sl-flash 0.7s ease; }
+  @keyframes sl-flash { 0%,100%{background:var(--s2)} 30%{background:rgba(16,185,129,0.18)} }
+
+  /* ── Layout ── */
+  .main { display: grid; grid-template-columns: 1fr 320px; min-height: calc(100vh - 56px); }
+  .inputs-col { padding: 20px 20px; border-right: 1px solid var(--faint); overflow-y: auto; }
+  .results-col { padding: 24px 20px; overflow-y: auto; position: sticky; top: 56px; height: calc(100vh - 56px); }
+
+  /* ── Card ── */
+  .card { background: var(--s1); border-radius: 6px; margin-bottom: 16px; box-shadow: 0 2px 20px rgba(0,0,10,.5), 0 0 0 1px rgba(255,255,255,.04); }
+  .card-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--faint); }
+  .card-header .tag { font-family: var(--mono); font-size: 10px; color: var(--accent); letter-spacing: 0.08em; border: 1px solid var(--accent-m); padding: 2px 6px; border-radius: 2px; }
+  .card-header .title { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text); }
+  .card-body { padding: 16px; }
+
+  /* ── Settings grid (기본 설정) ── */
+  .settings-scroll {
+    overflow-x: auto;
+    border-radius: 0 0 4px 4px;
+  }
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--border);
+    min-width: 350px;
+  }
+  .settings-grid--ops {
+    grid-template-columns: repeat(3, minmax(140px, 240px));
+    border-top: 2px solid var(--bg);
+  }
+  .setting-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 6px 8px;
+    background: var(--s1);
+    min-width: 0;
+  }
+  .setting-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .setting-sub { display: block; font-size: 8px; font-weight: 400; color: var(--faint); margin-top: 1px; letter-spacing: 0; }
+  .setting-item input[type="number"] {
+    width: 100%;
+    min-width: 0;
+    background: var(--s2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    padding: 4px 2px;
+    text-align: center;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .setting-item input[type="number"]:focus { outline: none; border-color: var(--accent); background: var(--s3); box-shadow: 0 0 0 2px var(--accent-d); }
+
+  /* ── Field rows (레거시, OPN 등에서 재사용 가능) ── */
+  .unit { font-size: 12px; color: var(--muted); }
+
+  /* ── OPN list ── */
+  .opn-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+
+  .opn-item { border: 1px solid var(--border); border-radius: 5px; overflow: hidden; box-shadow: 0 1px 10px rgba(0,0,8,.3); }
+  .opn-item.expanded { border-color: rgba(30,203,232,.22); }
+
+  .opn-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--s2); cursor: pointer; user-select: none; }
+  .opn-header:hover { background: var(--s3); }
+
+  .opn-toggle { font-size: 9px; color: var(--muted); transition: transform 0.2s; flex-shrink: 0; }
+  .opn-item.expanded .opn-toggle { transform: rotate(90deg); }
+
+  .opn-name-input {
+    flex: 1; background: transparent; border: 1px solid transparent; border-radius: 3px;
+    color: var(--text); font-family: var(--mono); font-size: 13px; font-weight: 600;
+    letter-spacing: 0.04em; cursor: text; min-width: 0; padding: 2px 5px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .opn-name-input:hover  { border-color: var(--border); background: var(--s3); }
+  .opn-name-input:focus  { outline: none; border-color: var(--accent); background: var(--s3); color: var(--accent); }
+
+  .opn-target-wrap { display: flex; align-items: center; gap: 5px; background: var(--s3); border: 1px solid var(--border); border-radius: 3px; padding: 3px 7px; flex-shrink: 0; }
+  .opn-target-input { width: 80px; background: transparent; border: none; color: var(--accent); font-family: var(--mono); font-size: 12px; text-align: right; }
+  .opn-target-input:focus { outline: none; }
+  .opn-target-unit { font-size: 10px; color: var(--muted); white-space: nowrap; }
+
+  .opn-del-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 2px; flex-shrink: 0; }
+  .opn-del-btn:hover { color: var(--danger); }
+
+  .opn-body { display: none; padding: 12px 14px; border-top: 1px solid var(--faint); background: var(--s1); }
+  .opn-item.expanded .opn-body { display: block; }
+
+  /* ── Process table (inside OPN) ── */
+  .proc-table-wrap { overflow-x: auto; margin-bottom: 10px; }
+  .proc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .proc-table th { text-align: left; padding: 5px 6px; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .proc-table th.th-r { text-align: right; }
+  .proc-table td { padding: 4px 4px; border-bottom: 1px solid var(--faint); vertical-align: middle; }
+  .proc-table tr:last-child td { border-bottom: none; }
+
+  .proc-text-input { background: transparent; border: 1px solid transparent; border-radius: 2px; color: var(--text); font-size: 12px; width: 100%; padding: 2px 4px; min-width: 60px; }
+  .proc-text-input:focus { outline: none; border-color: var(--accent); background: var(--s3); }
+  .proc-equip-select { background: var(--s3); border: 1px solid var(--border); border-radius: 2px; color: var(--text); font-family: var(--mono); font-size: 11px; padding: 2px 4px; cursor: pointer; }
+  .proc-equip-select:focus { outline: none; border-color: var(--accent); }
+  .proc-num-input { width: 58px; background: var(--s3); border: 1px solid var(--border); border-radius: 2px; color: var(--text); font-family: var(--mono); font-size: 12px; padding: 2px 5px; text-align: right; }
+  .proc-num-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-d); }
+  .proc-uph-val { font-family: var(--mono); font-size: 11px; color: var(--good); text-align: right; white-space: nowrap; }
+  .proc-daily-val { font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: right; white-space: nowrap; }
+  .proc-days-val { font-family: var(--mono); font-size: 11px; color: var(--accent); text-align: right; white-space: nowrap; }
+  .opn-days-badge {
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    padding: 3px 10px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+    background: var(--s3); color: var(--muted); border: 1px solid var(--border);
+  }
+  .opn-days-badge.ok   { color: var(--good);   background: rgba(15,189,131,0.1);  border-color: rgba(15,189,131,0.3); }
+  .opn-days-badge.warn { color: var(--warn);   background: rgba(245,166,35,0.1);  border-color: rgba(245,166,35,0.35); }
+  .opn-days-badge.over { color: var(--danger); background: rgba(239,68,68,0.1);   border-color: rgba(239,68,68,0.4); }
+  .proc-del-btn { background: none; border: none; color: var(--faint); cursor: pointer; font-size: 14px; padding: 0 2px; }
+  .proc-del-btn:hover { color: var(--danger); }
+  .proc-enable-cb { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
+  .proc-tr-disabled td:not(:first-child) { opacity: 0.28; pointer-events: none; }
+  .proc-tr-disabled td:first-child { opacity: 1; }
+
+  .add-proc-btn { display: flex; align-items: center; gap: 5px; background: none; border: 1px dashed var(--border); border-radius: 3px; color: var(--muted); font-size: 11px; padding: 5px 10px; cursor: pointer; width: 100%; justify-content: center; }
+  .add-proc-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Add OPN button ── */
+  .add-opn-btn { display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--s1); border: 1px dashed var(--border); border-radius: 5px; color: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 12px; cursor: pointer; width: 100%; letter-spacing: 0.04em; box-shadow: 0 1px 10px rgba(0,0,8,.3); transition: background 0.15s, border-color 0.15s; }
+  .add-opn-btn:hover { background: var(--accent-d); border-color: var(--accent); }
+
+
+  /* ── Results ── */
+  .r-section { margin-bottom: 22px; }
+  .r-section-title { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--faint); }
+
+  /* OPN 소요일 카드 */
+  .opn-day-card {
+    background: var(--s1); border-radius: 6px; padding: 15px 16px; margin-bottom: 10px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 2px 14px rgba(0,0,10,.45), 0 0 0 1px rgba(255,255,255,.03);
+  }
+  .opn-day-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--border);
+  }
+  .opn-day-card.ok::before   { background: var(--good); }
+  .opn-day-card.warn::before { background: var(--warn); }
+  .opn-day-card.over::before { background: var(--danger); }
+  .opn-day-card.ok   { box-shadow: 0 2px 14px rgba(0,0,10,.45), 0 0 0 1px rgba(15,189,131,.15); }
+  .opn-day-card.warn { box-shadow: 0 2px 14px rgba(0,0,10,.45), 0 0 0 1px rgba(245,166,35,.2); background: linear-gradient(160deg, rgba(245,166,35,.04) 0%, var(--s1) 35%); }
+  .opn-day-card.over { box-shadow: 0 2px 14px rgba(0,0,10,.45), 0 0 0 1px rgba(239,68,68,.25); background: linear-gradient(160deg, rgba(239,68,68,.05) 0%, var(--s1) 35%); }
+  .opn-day-card.multi { box-shadow: 0 2px 14px rgba(0,0,10,.45), 0 0 0 1px rgba(255,255,255,.03); }
+
+  .opn-day-name { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; }
+  .opn-day-main { display: flex; align-items: baseline; gap: 5px; margin-bottom: 6px; }
+  .opn-day-val  { font-family: var(--mono); font-size: 36px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.02em; }
+  .opn-day-val.ok   { color: var(--good); }
+  .opn-day-val.warn { color: var(--warn); }
+  .opn-day-val.over { color: var(--danger); }
+  .opn-day-unit { font-size: 13px; color: var(--muted); }
+
+  .opn-day-bar-track { height: 7px; background: var(--s3); border-radius: 99px; overflow: hidden; margin-bottom: 9px; }
+  .opn-day-bar-fill  { height: 100%; border-radius: 99px; transition: width 0.35s ease; }
+  .opn-day-bar-fill.ok   { background: linear-gradient(90deg, #0BA86F, #12D492); }
+  .opn-day-bar-fill.warn { background: linear-gradient(90deg, #D98A10, #F5A623); }
+  .opn-day-bar-fill.over { background: linear-gradient(90deg, #C93030, #EF4444); }
+
+  .opn-day-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 2px 8px; font-size: 11px; color: var(--muted); }
+  .opn-day-proc { font-family: var(--mono); font-size: 10px; color: var(--faint); white-space: nowrap; }
+  .opn-day-meta > span:last-child { white-space: nowrap; }
+  .opn-day-multi-target { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .ebd-wrap { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--faint); }
+  .ebd-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+  .ebd-table th { color: var(--muted); font-size: 9px; letter-spacing: 0.06em; padding: 0 4px 4px 0; border-bottom: 1px solid var(--faint); font-weight: 600; text-align: left; white-space: nowrap; }
+  .ebd-table th.r { text-align: right; }
+  .ebd-table td { padding: 5px 4px 5px 0; border-bottom: 1px solid var(--faint); }
+  .ebd-table tr:last-child td { border-bottom: none; }
+  .ebd-name { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+  .ebd-bar-cell { width: 100%; padding-right: 8px !important; }
+  .ebd-bar-wrap { height: 4px; background: var(--s3); border-radius: 2px; overflow: hidden; }
+  .ebd-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+  .ebd-bar-fill.ok   { background: var(--good); }
+  .ebd-bar-fill.warn { background: var(--warn); }
+  .ebd-bar-fill.over { background: var(--danger); }
+  .ebd-days { text-align: right; color: var(--accent); font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .opn-day-proc-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-family: var(--mono); font-size: 10px; }
+  .opn-day-proc-table th { color: var(--muted); font-weight: 600; letter-spacing: 0.05em; padding: 3px 6px 5px 0; border-bottom: 1px solid var(--faint); text-align: left; }
+  .opn-day-proc-table th.r { text-align: right; }
+  .opn-day-proc-table td { padding: 5px 6px 5px 0; border-bottom: 1px solid var(--faint); color: var(--text); white-space: nowrap; }
+  .opn-day-proc-table td.r { text-align: right; font-variant-numeric: tabular-nums; }
+  .opn-day-proc-table tr:last-child td { border-bottom: none; }
+  .opn-day-proc-table tr.bottleneck td { color: var(--warn); font-weight: 700; }
+  .opn-day-proc-table tr.bottleneck td.days-val { color: var(--over-color, var(--warn)); }
+  .bn-badge { display: inline-block; font-size: 8px; padding: 1px 4px; border-radius: 2px; background: rgba(245,158,11,0.15); color: var(--warn); border: 1px solid rgba(245,158,11,0.3); margin-left: 4px; letter-spacing: 0.04em; vertical-align: middle; }
+
+  .empty-state { font-size: 12px; color: var(--muted); padding: 12px 0; text-align: center; }
+
+  @keyframes val-pop { 0%{opacity:0.4;transform:scale(0.97)} 100%{opacity:1;transform:scale(1)} }
+  .animating { animation: val-pop 0.25s ease; }
+
+  /* ── Clock ── */
+  .local-clock { display: flex; flex-direction: row; align-items: center; flex-shrink: 0; padding: 0 2px; }
+  .clock-time { font-family: var(--mono); font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .clock-tz { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.03em; white-space: nowrap; margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--faint); }
+  [data-theme="light"] .clock-tz { border-left-color: var(--border); }
+
+  /* ── Language selector ── */
+  .lang-selector { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+  .lang-btn { background: transparent; border: none; border-right: 1px solid var(--border); color: var(--muted); font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 0 8px; height: 28px; cursor: pointer; letter-spacing: 0.05em; transition: background 0.15s, color 0.15s; }
+  .lang-btn:last-child { border-right: none; }
+  .lang-btn:hover { background: var(--s3); color: var(--text); }
+  .lang-btn.active { background: var(--accent-d); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="header-wrap">
+<header class="header">
+  <div class="header-brand">
+    <h1>CAPA CALCULATOR</h1>
+    <span data-i18n="subtitle">장비 점유율 계산기</span>
+  </div>
+  <div class="site-tabs">
+    <button class="site-tab" data-site="SFA">SFA</button>
+    <button class="site-tab" data-site="WINPAC">WINPAC</button>
+    <button class="site-tab" data-site="APACT">APACT</button>
+    <button class="site-tab" data-site="K-TEST">K-TEST</button>
+  </div>
+  <button class="opn-summary-tab" id="opn-summary-tab" data-i18n="productionTarget">생산목표수량</button>
+  <div class="header-actions">
+    <div class="local-clock" id="local-clock">
+      <span class="clock-time" id="clock-time">--:--:--</span>
+      <span class="clock-tz" id="clock-tz"></span>
+    </div>
+    <div class="lang-selector">
+      <button class="lang-btn" data-lang="ko">KO</button>
+      <button class="lang-btn" data-lang="en">EN</button>
+      <button class="lang-btn" data-lang="ja">JA</button>
+    </div>
+    <button class="header-site-btn" id="sl-load" data-i18n="load">불러오기</button>
+    <button class="header-site-btn save" id="sl-save" data-i18n="save">저장</button>
+    <button class="header-site-btn save" id="sl-saveas" data-i18n="saveAs">다른 이름으로</button>
+    <button class="theme-toggle" id="theme-toggle" title="다크/라이트 모드 전환">🌙</button>
+  </div>
+</header>
+<div class="opn-summary-panel" id="opn-summary-panel">
+  <div class="opn-summary-grid" id="opn-summary-grid"></div>
+  <div class="opn-summary-total">
+    <span data-i18n="grandTotal">전체 합계</span>
+    <strong id="opn-summary-total-val">0K</strong>
+    <span data-i18n="eaPerMonth">ea/월</span>
+  </div>
+</div>
+</div>
+
+<div class="main">
+
+  <!-- ── 좌측: 설정 ── -->
+  <div class="inputs-col">
+
+    <!-- 01 기본 설정 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="tag">01</span>
+        <span class="title" data-i18n="basicSettings">기본 설정</span>
+      </div>
+      <div class="settings-scroll">
+        <div class="settings-grid" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
+          <div class="setting-item">
+            <span class="setting-label">T5377S-149ball<span class="setting-sub" data-i18n="units">대수</span></span>
+            <input type="number" id="m-t5377" value="1" min="0" max="999" step="0.1">
+          </div>
+          <div class="setting-item">
+            <span class="setting-label">T5377S-TSOP<span class="setting-sub" data-i18n="units">대수</span></span>
+            <input type="number" id="m-t5377tsop" value="1" min="0" max="999" step="0.1">
+          </div>
+          <div class="setting-item">
+            <span class="setting-label">T5377S-63ball<span class="setting-sub" data-i18n="units">대수</span></span>
+            <input type="number" id="m-t5377-63ball" value="1" min="0" max="999" step="0.1">
+          </div>
+          <div class="setting-item">
+            <span class="setting-label">T5377S-WSON8<span class="setting-sub" data-i18n="units">대수</span></span>
+            <input type="number" id="m-t5377wson8" value="1" min="0" max="999" step="0.1">
+          </div>
+        </div>
+        <div class="settings-grid" style="grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--bg);">
+          <div class="setting-item">
+            <span class="setting-label">T5588-149Ball<span class="setting-sub" data-i18n="units">대수</span></span>
+            <input type="number" id="m-t5588" value="1" min="0" max="999" step="0.1">
+          </div>
+          <div class="setting-item">
+            <span class="setting-label">T5503-149ball<span class="setting-sub" data-i18n="units">대수</span></span>
+            <input type="number" id="m-t5503" value="1" min="0" max="999" step="0.1">
+          </div>
+        </div>
+        <div class="settings-grid" style="grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--bg);">
+          <div class="setting-item">
+            <span class="setting-label">Magnum2X-153ball<span class="setting-sub" data-i18n="units">대수</span></span>
+            <input type="number" id="m-magnum2x" value="1" min="0" max="999" step="0.1">
+          </div>
+          <div class="setting-item">
+            <span class="setting-label">DF1560-153ball<span class="setting-sub" data-i18n="units">대수</span></span>
+            <input type="number" id="m-df1560" value="1" min="0" max="999" step="0.1">
+          </div>
+          <div class="setting-item">
+            <span class="setting-label">Magnum1-153ball<span class="setting-sub" data-i18n="units">대수</span></span>
+            <input type="number" id="m-magnum1" value="1" min="0" max="999" step="0.1">
+          </div>
+        </div>
+        <div class="settings-grid settings-grid--ops">
+          <div class="setting-item">
+            <span class="setting-label"><span data-i18n="hoursLabel">가동 시간</span><span class="setting-sub">Hours / Day</span></span>
+            <input type="number" id="hours" value="24" min="0.5" max="24" step="0.5">
+          </div>
+          <div class="setting-item">
+            <span class="setting-label"><span data-i18n="effLabel">가동 효율</span><span class="setting-sub">Equipment Efficiency</span></span>
+            <input type="number" id="efficiency" value="70" min="1" max="100" step="1">
+          </div>
+          <div class="setting-item">
+            <span class="setting-label"><span data-i18n="workdaysLabel">가용 날짜</span><span class="setting-sub">Days / Month</span></span>
+            <input type="number" id="workdays" value="30" min="1" max="31" step="1">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 02 OPN 설정 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="tag">02</span>
+        <span class="title" data-i18n="opnSettings">OPN 설정</span>
+        <span style="margin-left:10px;font-size:10px;color:var(--muted);font-style:italic;line-height:1.4;">다중공정의 경우 Total 소요일은 생산 수량이 많은 경우의 Best Case이니 참고 부탁 드립니다.</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="opn-count-label">0개</span>
+      </div>
+      <div style="padding:14px 16px">
+        <div class="opn-list" id="opn-list"></div>
+        <button class="add-opn-btn" id="add-opn-btn" data-i18n="addOpn">+ OPN 추가</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── 우측: 결과 ── -->
+  <div class="results-col">
+
+    <div class="r-section">
+      <div class="r-section-title" data-i18n="equipDayTitle">장비별 필요 소요일</div>
+      <div id="equip-day-cards"><div class="empty-state">OPN 및 공정을 설정하세요</div></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const EQUIP_LIST = ['T5377S-149ball', 'T5377S-TSOP', 'T5377S-63ball', 'T5377S-WSON8', 'T5588-149Ball', 'T5503-149ball', 'Magnum2X-153ball', 'DF1560-153ball', 'Magnum1-153ball'];
+  const PROC_NAMES = ['NHOT', 'NCOLD', 'DHOT', 'DCOLD', 'DSPEED', 'FT1', 'FT2',
+    'QA1', 'QA2', 'NHQA', 'NRQA', 'NCQA', 'DHQA', 'DRQA', 'DCQA', 'SHQA', 'SRQA', 'SCQA'];
+  const SITES      = ['SFA', 'WINPAC', 'APACT', 'K-TEST'];
+
+  /* ── 다국어 (i18n) ── */
+  let lang = localStorage.getItem('capa-lang') || 'ko';
+
+  const I18N = {
+    ko: {
+      subtitle: '장비 점유율 계산기', productionTarget: '생산목표수량',
+      load: '불러오기', save: '저장', saveAs: '다른 이름으로',
+      basicSettings: '기본 설정', units: '대수',
+      opnSettings: 'OPN 설정', equipDayTitle: '장비별 필요 소요일',
+      emptyState: 'OPN 및 공정을 설정하세요',
+      opnName: 'OPN 이름', targetUnit: 'K ea/월',
+      procName: '공정명', equipment: '장비', dailyQty: '일 생산량(K)', reqDays: '소요일',
+      addProc: '+ 공정 추가', addOpn: '+ OPN 추가',
+      daySuffix: '일', dayUsed: '일 소요', machines: '대', avail: '가용', dayMonth: '일/월',
+      opnCountSuffix: '개 OPN', subtotal: '소계', grandTotal: '전체 합계', eaPerMonth: 'ea/월',
+      noOpn: 'OPN 없음', saveDone: '✓ 저장됨', saveErr: '저장 실패: ', loadErr: '불러오기 실패: ',
+      deleteOpnConfirm: n => `"${n}" OPN을 삭제하시겠습니까?`,
+      deleteProcConfirm: '마지막 공정을 삭제하시겠습니까?',
+      opnCountLabel: n => `${n}개`,
+      hoursLabel: '가동 시간', effLabel: '가동 효율', workdaysLabel: '가용 날짜',
+    },
+    en: {
+      subtitle: 'Equipment Utilization Calc', productionTarget: 'Prod. Target',
+      load: 'Load', save: 'Save', saveAs: 'Save As',
+      basicSettings: 'Basic Settings', units: 'Count',
+      opnSettings: 'OPN Settings', equipDayTitle: 'Required Days by Equipment',
+      emptyState: 'Add OPNs and processes to begin',
+      opnName: 'OPN Name', targetUnit: 'K ea/month',
+      procName: 'Process', equipment: 'Equipment', dailyQty: 'Daily Qty(K)', reqDays: 'Req. Days',
+      addProc: '+ Add Process', addOpn: '+ Add OPN',
+      daySuffix: 'd', dayUsed: 'd req.', machines: ' unit(s)', avail: 'Avail.', dayMonth: 'd/month',
+      opnCountSuffix: ' OPNs', subtotal: 'Subtotal', grandTotal: 'Grand Total', eaPerMonth: 'ea/month',
+      noOpn: 'No OPN', saveDone: '✓ Saved', saveErr: 'Save failed: ', loadErr: 'Load failed: ',
+      deleteOpnConfirm: n => `Delete OPN "${n}"?`,
+      deleteProcConfirm: 'Delete the last process?',
+      opnCountLabel: n => `${n}`,
+      hoursLabel: 'Operating Hrs', effLabel: 'Efficiency', workdaysLabel: 'Avail. Days',
+    },
+    ja: {
+      subtitle: '設備稼働率計算機', productionTarget: '生産目標数量',
+      load: '読込', save: '保存', saveAs: '名前を付けて保存',
+      basicSettings: '基本設定', units: '台数',
+      opnSettings: 'OPN設定', equipDayTitle: '設備別必要稼働日数',
+      emptyState: 'OPNとプロセスを設定してください',
+      opnName: 'OPN名', targetUnit: 'K ea/月',
+      procName: 'プロセス名', equipment: '設備', dailyQty: '日産量(K)', reqDays: '必要日数',
+      addProc: '+ プロセス追加', addOpn: '+ OPN追加',
+      daySuffix: '日', dayUsed: '日 必要', machines: '台', avail: '稼働可能', dayMonth: '日/月',
+      opnCountSuffix: '件 OPN', subtotal: '小計', grandTotal: '合計', eaPerMonth: 'ea/月',
+      noOpn: 'OPNなし', saveDone: '✓ 保存済み', saveErr: '保存失敗: ', loadErr: '読込失敗: ',
+      deleteOpnConfirm: n => `OPN「${n}」を削除しますか?`,
+      deleteProcConfirm: '最後のプロセスを削除しますか?',
+      opnCountLabel: n => `${n}件`,
+      hoursLabel: '稼働時間', effLabel: '稼働効率', workdaysLabel: '稼働可能日',
+    }
+  };
+
+  function t(key) { return (I18N[lang] || I18N.ko)[key] || key; }
+
+  function applyLang(newLang) {
+    if (!I18N[newLang]) return;
+    lang = newLang;
+    localStorage.setItem('capa-lang', lang);
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('.lang-btn').forEach(btn => { btn.classList.toggle('active', btn.dataset.lang === lang); });
+    renderOpnList();
+    calc();
+  }
+
+  /* ── 유틸 ── */
+  function uid()      { return 'o' + Math.random().toString(36).slice(2, 9); }
+  function fmt(n)     { return (isFinite(n) && !isNaN(n)) ? n.toFixed(1) : '—'; }
+  function fmtF(n,d=1){ return (isFinite(n) && !isNaN(n)) ? n.toFixed(d) : '—'; }
+  function esc(s)     { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function uphOf(p)   { return (p.ct > 0 && p.para > 0) ? (3600 / p.ct) * p.para : 0; }
+
+  /* ── 사이트별 데이터 ── */
+  let currentSite = localStorage.getItem('capa-active-site') || 'SFA';
+  if (!SITES.includes(currentSite)) currentSite = 'SFA';
+
+  function siteKey(site) { return 'capa-site-' + site; }
+
+  function makeOpn(name, target) {
+    return { id: uid(), name: name || 'OPN-NEW', target: target || 100, expanded: true,
+      processes: [{ name: 'NHOT', equip: 'T5377S-149ball', ct: 60, para: 256, enabled: true }] };
+  }
+
+  const DEFAULT_BASIC = { t5377:'1', t5377tsop:'1', 't5377-63ball':'1', t5377wson8:'1', t5588:'1', t5503:'1', magnum2x:'1', df1560:'1', magnum1:'1', hours:'24', efficiency:'70', workdays:'30' };
+
+  function siteLoad(site) {
+    try { return JSON.parse(localStorage.getItem(siteKey(site)) || 'null'); } catch { return null; }
+  }
+  function siteSave(site, basic, opnList) {
+    localStorage.setItem(siteKey(site), JSON.stringify({ basic, opns: opnList }));
+  }
+  function storeSave() {
+    siteSave(currentSite, getBasicSettingsRaw(), opns);
+    localStorage.setItem('capa-active-site', currentSite);
+  }
+
+  function getBasicSettingsRaw() {
+    return {
+      t5377: document.getElementById('m-t5377').value,
+      t5377tsop: document.getElementById('m-t5377tsop').value,
+      't5377-63ball': document.getElementById('m-t5377-63ball').value,
+      t5377wson8: document.getElementById('m-t5377wson8').value,
+      t5588: document.getElementById('m-t5588').value, t5503: document.getElementById('m-t5503').value,
+      magnum2x: document.getElementById('m-magnum2x').value, df1560: document.getElementById('m-df1560').value,
+      magnum1: document.getElementById('m-magnum1').value,
+      hours: document.getElementById('hours').value, efficiency: document.getElementById('efficiency').value,
+      workdays: document.getElementById('workdays').value,
+    };
+  }
+
+  function applyBasicRaw(s) {
+    if (!s) s = DEFAULT_BASIC;
+    const map = { t5377:'m-t5377', t5377tsop:'m-t5377tsop', 't5377-63ball':'m-t5377-63ball', t5377wson8:'m-t5377wson8', t5588:'m-t5588', t5503:'m-t5503', magnum2x:'m-magnum2x', df1560:'m-df1560', magnum1:'m-magnum1', hours:'hours', efficiency:'efficiency', workdays:'workdays' };
+    Object.entries(map).forEach(([k, id]) => { if (s[k] !== undefined) document.getElementById(id).value = s[k]; });
+  }
+
+  const EQUIP_MIGRATE = {
+    'T5377': 'T5377S-149ball', 'T5377-149ball': 'T5377S-149ball',
+    'T5377-TSOP': 'T5377S-TSOP', 'T5377-63ball': 'T5377S-63ball', 'T5377-WSON8': 'T5377S-WSON8',
+    'T5588': 'T5588-149Ball', 'T5503': 'T5503-149ball',
+    'Magnum2X': 'Magnum2X-153ball', 'DF1560': 'DF1560-153ball', 'Magnum1': 'Magnum1-153ball'
+  };
+  function applySiteData(data) {
+    applyBasicRaw(data?.basic || null);
+    opns = data?.opns ? JSON.parse(JSON.stringify(data.opns)) : [makeOpn('OPN-001', 100)];
+    opns.forEach(opn => opn.processes.forEach(p => {
+      if (!PROC_NAMES.includes(p.name)) p.name = 'NHOT';
+      if (EQUIP_MIGRATE[p.equip]) p.equip = EQUIP_MIGRATE[p.equip];
+    }));
+  }
+
+  function updateSiteTabs() {
+    document.querySelectorAll('.site-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.site === currentSite);
+    });
+  }
+
+  function switchSite(newSite) {
+    if (newSite === currentSite) return;
+    storeSave();
+    currentSite = newSite;
+    applySiteData(siteLoad(currentSite));
+    renderOpnList();
+    calc();
+    updateSiteTabs();
+    localStorage.setItem('capa-active-site', currentSite);
+  }
+
+  /* 탭 클릭 */
+  document.querySelectorAll('.site-tab').forEach(btn => {
+    btn.addEventListener('click', () => switchSite(btn.dataset.site));
+  });
+
+  /* 초기 로드 */
+  applySiteData(siteLoad(currentSite));
+  updateSiteTabs();
+
+  /* ── 계산 ── */
+  function calc() {
+    const mCounts = {
+      'T5377S-149ball': parseFloat(document.getElementById('m-t5377').value)      || 0,
+      'T5377S-TSOP':    parseFloat(document.getElementById('m-t5377tsop').value)  || 0,
+      'T5377S-63ball':  parseFloat(document.getElementById('m-t5377-63ball').value) || 0,
+      'T5377S-WSON8':   parseFloat(document.getElementById('m-t5377wson8').value) || 0,
+      'T5588-149Ball': parseFloat(document.getElementById('m-t5588').value) || 0,
+      'T5503-149ball': parseFloat(document.getElementById('m-t5503').value) || 0,
+      'Magnum2X-153ball': parseFloat(document.getElementById('m-magnum2x').value) || 0,
+      'DF1560-153ball':   parseFloat(document.getElementById('m-df1560').value)   || 0,
+      'Magnum1-153ball':  parseFloat(document.getElementById('m-magnum1').value)  || 0,
+    };
+    const hours = parseFloat(document.getElementById('hours').value) || 0;
+    const eff   = (parseFloat(document.getElementById('efficiency').value) || 100) / 100;
+
+    // equipBreakdown[equip][opnId] = { name, reqH }
+    const equipBreakdown = {};
+
+    for (const opn of opns) {
+      const M = (opn.target || 0) * 1000;
+      const opnEl = document.querySelector(`.opn-item[data-id="${opn.id}"]`);
+
+      // 1단계: 각 공정별 개별 소요일 계산
+      const procResults = opn.processes.map((proc, pi) => {
+        const en = proc.enabled !== false;
+        const N = en ? (mCounts[proc.equip] || 0) : 0;
+        const dailyTP = (en && N > 0 && proc.ct > 0 && proc.para > 0 && hours > 0)
+          ? N * hours * eff * (3600 / proc.ct) * proc.para : 0;
+        const days = (en && M > 0 && dailyTP > 0) ? M / dailyTP : (en && M > 0 ? Infinity : 0);
+        return { proc, pi, N, days, en };
+      });
+
+      // 2단계: 장비별 그룹화 → 혼합 방식으로 그룹 소요일 계산 (disabled 제외)
+      const equipGroups = {};
+      procResults.forEach(({ proc, days, en }) => {
+        if (!en) return;
+        if (!equipGroups[proc.equip]) equipGroups[proc.equip] = [];
+        equipGroups[proc.equip].push(days);
+      });
+
+      // 각 공정이 병렬(P)인지 순차(S)인지 판별
+      const procMode = {}; // equip → 'P' or 'S'
+      for (const [equip, daysList] of Object.entries(equipGroups)) {
+        const N = mCounts[equip] || 0;
+        procMode[equip] = N >= daysList.length ? 'P' : 'S';
+      }
+
+      // 3단계: 그룹별 기여 소요일 (P→max, S→sum)
+      let bnDays = 0;
+      for (const [equip, daysList] of Object.entries(equipGroups)) {
+        const isParallel = procMode[equip] === 'P';
+        const groupDays = isParallel
+          ? Math.max(...daysList)
+          : daysList.reduce((s, d) => isFinite(s) && isFinite(d) ? s + d : Infinity, 0);
+        if (groupDays > bnDays) bnDays = groupDays;
+      }
+
+      // 공정 테이블 셀 업데이트
+      procResults.forEach(({ proc, pi, N, days, en }) => {
+        if (opnEl) {
+          const tr = opnEl.querySelector(`.proc-tbody tr[data-pi="${pi}"]`);
+          if (tr) {
+            const dailyCell = tr.querySelector('.proc-daily-val');
+            const daysCell  = tr.querySelector('.proc-days-val');
+            if (!en) {
+              if (dailyCell) dailyCell.textContent = '—';
+              if (daysCell)  daysCell.innerHTML    = '—';
+            } else {
+              if (dailyCell) {
+                const dailyQty = N > 0 && uphOf(proc) > 0 ? N * uphOf(proc) * hours * eff / 1000 : 0;
+                dailyCell.textContent = dailyQty > 0 ? fmtF(dailyQty, 1) + 'K' : '—';
+              }
+              if (daysCell) {
+                const mode = procMode[proc.equip];
+                const activeSameEquip = opn.processes.filter(p => p.enabled !== false && p.equip === proc.equip).length;
+                const modeTag = activeSameEquip > 1
+                  ? `<span style="font-size:9px;margin-left:3px;opacity:.6">${mode}</span>` : '';
+                const daysTxt = M === 0 ? '—' : isFinite(days) && days > 0 ? fmtF(days, 1) + t('daySuffix') : '∞';
+                daysCell.innerHTML = daysTxt + modeTag;
+              }
+            }
+          }
+        }
+
+        // 장비별 OPN 내역 누적 (disabled 제외)
+        if (en && M > 0 && proc.ct > 0 && proc.para > 0) {
+          if (!equipBreakdown[proc.equip]) equipBreakdown[proc.equip] = {};
+          const prev = equipBreakdown[proc.equip][opn.id] || { name: opn.name, reqH: 0 };
+          prev.reqH += M * (proc.ct / proc.para) / 3600;
+          equipBreakdown[proc.equip][opn.id] = prev;
+        }
+      });
+
+      // OPN 헤더 뱃지
+      const badge = document.getElementById(`days-${opn.id}`);
+      if (badge) {
+        const txt = M === 0 ? '—' : isFinite(bnDays) && bnDays > 0 ? fmtF(bnDays, 1) + t('daySuffix') : '∞';
+        const workdays = Math.max(1, parseFloat(document.getElementById('workdays').value) || 30);
+        const cls = M === 0 ? '' : !isFinite(bnDays) || bnDays > workdays ? 'over' : bnDays > workdays * 0.8 ? 'warn' : 'ok';
+        badge.textContent = txt;
+        badge.className = `opn-days-badge ${cls}`;
+      }
+    }
+
+    // 장비별 총 소요일 + OPN 내역 전달
+    const equipDays = {};
+    for (const [eq, opnMap] of Object.entries(equipBreakdown)) {
+      const N = mCounts[eq] || 0;
+      const availPerDay = N * hours * eff;
+      const totalReqH = Object.values(opnMap).reduce((s, o) => s + o.reqH, 0);
+      equipDays[eq] = { days: availPerDay > 0 ? totalReqH / availPerDay : Infinity, availPerDay, opnMap };
+    }
+
+    const workdays = Math.max(1, parseFloat(document.getElementById('workdays').value) || 30);
+    renderEquipDayCards(equipDays, mCounts, hours, eff, workdays);
+  }
+
+  function renderEquipDayCards(equipDays, mCounts, hours, eff, workdays = 30) {
+    const wrap = document.getElementById('equip-day-cards');
+    const equips = EQUIP_LIST.filter(e => equipDays[e] !== undefined || mCounts[e] > 0);
+    if (!equips.length) {
+      wrap.innerHTML = `<div class="empty-state">${t('emptyState')}</div>`;
+      return;
+    }
+    wrap.innerHTML = '';
+    for (const eq of equips) {
+      const info = equipDays[eq];
+      const days = info ? info.days : 0;
+      const availPerDay = info ? info.availPerDay : 0;
+      const opnMap = info ? info.opnMap : {};
+      const N = mCounts[eq] || 0;
+      const totalAvail = N * workdays;
+      const cls = days === 0 ? '' : !isFinite(days) || days > totalAvail ? 'over' : days > totalAvail * 0.85 ? 'warn' : 'ok';
+      const barW = days > 0 && isFinite(days) ? Math.min(days / totalAvail * 100, 100).toFixed(1) : '0';
+      const daysText = days === 0 ? '—' : isFinite(days) ? fmtF(days, 1) : '∞';
+      const utilPct = days > 0 && isFinite(days) && N > 0 ? fmtF(days / (N * workdays) * 100, 1) + '%' : '';
+
+      // OPN 내역 행 생성
+      const opnEntries = Object.values(opnMap);
+      const bdRows = opnEntries.map(({ name, reqH }) => {
+        const d = availPerDay > 0 ? reqH / availPerDay : Infinity;
+        const dStr = isFinite(d) ? fmtF(d, 1) + t('daySuffix') : '∞';
+        const pct = days > 0 && isFinite(days) ? (d / days * 100) : 0;
+        return `<tr>
+          <td class="ebd-name" title="${esc(name)}">${esc(name)}</td>
+          <td class="ebd-bar-cell"><div class="ebd-bar-wrap"><div class="ebd-bar-fill ${cls}" style="width:${Math.min(pct,100).toFixed(1)}%"></div></div></td>
+          <td class="ebd-days">${dStr}</td>
+        </tr>`;
+      }).join('');
+
+      const card = document.createElement('div');
+      card.className = `opn-day-card ${cls}`;
+      card.innerHTML = `
+        <div class="opn-day-name">${eq} <span style="font-weight:400;color:var(--muted)">× ${N}${t('machines')}</span></div>
+        <div class="opn-day-main">
+          <span class="opn-day-val ${cls}">${daysText}</span>
+          <span class="opn-day-unit">${t('dayUsed')}</span>
+          ${utilPct ? `<span style="font-weight:700;font-size:14px;margin-left:8px;color:var(--fg)">${utilPct}</span>` : ''}
+        </div>
+        <div class="opn-day-bar-track"><div class="opn-day-bar-fill ${cls}" style="width:${barW}%"></div></div>
+        <div class="opn-day-meta">
+          <span>${N}${t('machines')} × ${fmtF(hours,1)}hr × ${fmtF(eff*100,1)}% &nbsp;|&nbsp; ${t('avail')} ${N * workdays}${t('dayMonth')}</span>
+        </div>
+        ${opnEntries.length ? `
+        <div class="ebd-wrap">
+          <table class="ebd-table">
+            <thead><tr><th>OPN</th><th></th><th class="r">${t('reqDays')}</th></tr></thead>
+            <tbody>${bdRows}</tbody>
+          </table>
+        </div>` : ''}`;
+      wrap.appendChild(card);
+    }
+  }
+
+
+
+  /* ── OPN 렌더링 ── */
+  function renderOpnList() {
+    const list = document.getElementById('opn-list');
+    list.innerHTML = '';
+    document.getElementById('opn-count-label').textContent = I18N[lang].opnCountLabel(opns.length);
+
+    opns.forEach((opn, opnIdx) => {
+      const item = document.createElement('div');
+      item.className = 'opn-item' + (opn.expanded ? ' expanded' : '');
+      item.dataset.id = opn.id;
+
+      const procRows = opn.processes.map((proc, pi) => {
+        const en = proc.enabled !== false;
+        return `
+        <tr data-pi="${pi}"${en ? '' : ' class="proc-tr-disabled"'}>
+          <td style="text-align:center"><input type="checkbox" class="proc-enable-cb" data-action="toggle-proc"${en ? ' checked' : ''}></td>
+          <td><select class="proc-equip-select" data-field="name">
+            ${PROC_NAMES.map(n => `<option value="${n}"${proc.name===n?' selected':''}>${n}</option>`).join('')}
+          </select></td>
+          <td><select class="proc-equip-select" data-field="equip">
+            ${EQUIP_LIST.map(e => `<option value="${e}"${proc.equip===e?' selected':''}>${e}</option>`).join('')}
+          </select></td>
+          <td style="text-align:right"><input type="number" class="proc-num-input" value="${proc.ct}"   min="0.1" max="99999" step="0.1" data-field="ct"></td>
+          <td style="text-align:right"><input type="number" class="proc-num-input" value="${proc.para}" min="1"   max="9999"  step="1"   data-field="para"></td>
+          <td class="proc-uph-val">${uphOf(proc) > 0 ? fmt(uphOf(proc)) : '—'}</td>
+          <td class="proc-daily-val">—</td>
+          <td class="proc-days-val">—</td>
+          <td><button class="proc-del-btn" data-action="del-proc">×</button></td>
+        </tr>`;
+      }).join('');
+
+      item.innerHTML = `
+        <div class="opn-header">
+          <span class="opn-toggle">▶</span>
+          <input type="text" class="opn-name-input" value="${esc(opn.name)}" data-action="rename" placeholder="${t('opnName')}">
+          <div class="opn-target-wrap">
+            <input type="number" class="opn-target-input" value="${opn.target}" min="0" step="1" data-action="target">
+            <span class="opn-target-unit">${t('targetUnit')}</span>
+          </div>
+          <span class="opn-days-badge" id="days-${opn.id}">—</span>
+          <button class="opn-del-btn" data-action="del-opn" title="삭제">×</button>
+        </div>
+        <div class="opn-body">
+          <div class="proc-table-wrap">
+            <table class="proc-table">
+              <colgroup>
+                <col style="width:22px"><col style="width:86px"><col style="width:160px">
+                <col style="width:68px"><col style="width:60px">
+                <col style="width:72px"><col style="width:82px"><col style="width:82px">
+                <col style="width:24px">
+              </colgroup>
+              <thead><tr>
+                <th></th><th>${t('procName')}</th><th>${t('equipment')}</th>
+                <th class="th-r">CT(s)</th><th class="th-r">Para</th>
+                <th class="th-r">UPH</th><th class="th-r">${t('dailyQty')}</th><th class="th-r">${t('reqDays')}</th><th></th>
+              </tr></thead>
+              <tbody class="proc-tbody">${procRows}</tbody>
+            </table>
+          </div>
+          <button class="add-proc-btn" data-action="add-proc">${t('addProc')}</button>
+        </div>`;
+
+      /* 토글 */
+      item.querySelector('.opn-header').addEventListener('click', e => {
+        if (e.target.closest('[data-action]')) return;
+        opn.expanded = !opn.expanded;
+        item.classList.toggle('expanded', opn.expanded);
+        storeSave();
+      });
+
+      /* OPN 이름 — click/mousedown 전파 차단으로 헤더 토글 방지 */
+      const nameInput = item.querySelector('[data-action="rename"]');
+      nameInput.addEventListener('click',     e => e.stopPropagation());
+      nameInput.addEventListener('mousedown', e => e.stopPropagation());
+      nameInput.addEventListener('input', e => {
+        opn.name = e.target.value; storeSave(); calc();
+      });
+
+      /* 목표 생산량 */
+      item.querySelector('[data-action="target"]').addEventListener('input', e => {
+        opn.target = parseFloat(e.target.value) || 0; storeSave(); calc();
+      });
+
+      /* OPN 삭제 */
+      item.querySelector('[data-action="del-opn"]').addEventListener('click', e => {
+        e.stopPropagation();
+        if (!confirm(I18N[lang].deleteOpnConfirm(opn.name))) return;
+        opns.splice(opnIdx, 1);
+        storeSave(); renderOpnList(); calc();
+      });
+
+      /* 공정 추가 */
+      item.querySelector('[data-action="add-proc"]').addEventListener('click', () => {
+        opn.processes.push({ name: 'NHOT', equip: 'T5377S-149ball', ct: 60, para: 256, enabled: true });
+        storeSave(); renderOpnList(); calc();
+      });
+
+      /* 공정 입력 — input: 데이터+계산만, change(blur): 재렌더 */
+      const tbody = item.querySelector('.proc-tbody');
+      tbody.addEventListener('input', e => {
+        const tr    = e.target.closest('tr'); if (!tr) return;
+        const pi    = +tr.dataset.pi;
+        const field = e.target.dataset.field;
+        const proc  = opn.processes[pi]; if (!proc || !field || field === 'equip' || field === 'name') return;
+        proc[field] = parseFloat(e.target.value) || 0;
+        const uphEl = tr.querySelector('.proc-uph-val');
+        if (uphEl) uphEl.textContent = uphOf(proc) > 0 ? fmt(uphOf(proc)) : '—';
+        storeSave(); calc();
+      });
+      tbody.addEventListener('change', e => {
+        const tr    = e.target.closest('tr'); if (!tr) return;
+        const pi    = +tr.dataset.pi;
+        const field = e.target.dataset.field;
+        const proc  = opn.processes[pi]; if (!proc || !field) return;
+        if (field === 'equip' || field === 'name') { proc[field] = e.target.value; }
+        storeSave(); renderOpnList(); calc();
+      });
+
+      /* 공정 활성/비활성 토글 */
+      tbody.addEventListener('change', e => {
+        const cb = e.target.closest('[data-action="toggle-proc"]'); if (!cb) return;
+        const pi = +cb.closest('tr').dataset.pi;
+        opn.processes[pi].enabled = cb.checked;
+        const tr = cb.closest('tr');
+        tr.classList.toggle('proc-tr-disabled', !cb.checked);
+        storeSave(); calc();
+      });
+
+      /* 공정 삭제 */
+      tbody.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action="del-proc"]'); if (!btn) return;
+        const pi = +btn.closest('tr').dataset.pi;
+        if (opn.processes.length === 1 && !confirm(t('deleteProcConfirm'))) return;
+        opn.processes.splice(pi, 1);
+        storeSave(); renderOpnList(); calc();
+      });
+
+      list.appendChild(item);
+    });
+
+    if (document.getElementById('opn-summary-panel').classList.contains('open')) updateOpnSummary();
+  }
+
+  /* ── 생산목표수량 드롭다운 ── */
+  const opnSummaryTab   = document.getElementById('opn-summary-tab');
+  const opnSummaryPanel = document.getElementById('opn-summary-panel');
+
+  function updateOpnSummary() {
+    storeSave(); // 현재 사이트 데이터 먼저 저장
+    const grid = document.getElementById('opn-summary-grid');
+    let grandTotal = 0;
+
+    grid.innerHTML = SITES.map(site => {
+      const data = siteLoad(site);
+      const siteOpns = data?.opns || [];
+      const siteTotal = siteOpns.reduce((s, o) => s + (o.target || 0), 0);
+      grandTotal += siteTotal;
+
+      const rows = siteOpns.length
+        ? siteOpns.map(o =>
+            `<tr><td>${esc(o.name)}</td><td class="r">${(o.target||0).toLocaleString('ko-KR')}K</td></tr>`
+          ).join('')
+        : `<tr><td colspan="2" class="opn-summary-empty">${t('noOpn')}</td></tr>`;
+
+      return `
+        <div class="opn-summary-site">
+          <div class="opn-summary-site-header">
+            ${site} <span>${siteOpns.length}${t('opnCountSuffix')}</span>
+          </div>
+          <table class="opn-summary-table">
+            <thead><tr><th>OPN</th><th class="r">${t('targetUnit')}</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div class="opn-summary-site-sub">
+            <span>${t('subtotal')}</span>
+            <strong>${siteTotal.toLocaleString('ko-KR')}K</strong>
+          </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('opn-summary-total-val').textContent = grandTotal.toLocaleString('ko-KR') + 'K';
+  }
+
+  opnSummaryTab.addEventListener('click', () => {
+    const open = opnSummaryPanel.classList.toggle('open');
+    opnSummaryTab.classList.toggle('active', open);
+    if (open) updateOpnSummary();
+  });
+
+  document.addEventListener('click', e => {
+    if (!opnSummaryPanel.contains(e.target) && e.target !== opnSummaryTab) {
+      opnSummaryPanel.classList.remove('open');
+      opnSummaryTab.classList.remove('active');
+    }
+  });
+
+  /* OPN 추가 */
+  document.getElementById('add-opn-btn').addEventListener('click', () => {
+    opns.push(makeOpn(`OPN-${String(opns.length + 1).padStart(3, '0')}`, 100));
+    storeSave(); renderOpnList(); calc();
+  });
+
+  /* 기본 설정 변경 */
+  ['m-t5377','m-t5377tsop','m-t5377-63ball','m-t5377wson8','m-t5588','m-t5503','m-magnum2x','m-df1560','m-magnum1','hours','efficiency','workdays'].forEach(id => {
+    document.getElementById(id).addEventListener('input', calc);
+  });
+
+  /* 초기화 */
+  renderOpnList();
+  calc();
+
+  // ── 파일 백업/복원 (현재 활성 Site 기준) ──
+  let fileHandle = null;
+
+  function buildFileData() {
+    return { site: currentSite, basic: getBasicSettingsRaw(), opns: JSON.parse(JSON.stringify(opns)) };
+  }
+
+  function flashBtn(btnId) {
+    const btn = document.getElementById(btnId);
+    const prev = btn.textContent;
+    btn.textContent = t('saveDone');
+    btn.classList.add('sl-save-flash');
+    setTimeout(() => { btn.textContent = prev; btn.classList.remove('sl-save-flash'); }, 1200);
+  }
+
+  /* 저장 — 기존 파일 핸들로 덮어쓰기 */
+  document.getElementById('sl-save').addEventListener('click', async () => {
+    if (!fileHandle) { document.getElementById('sl-saveas').click(); return; }
+    try {
+      const w = await fileHandle.createWritable();
+      await w.write(JSON.stringify(buildFileData(), null, 2));
+      await w.close();
+      flashBtn('sl-save');
+    } catch(e) { if (e.name !== 'AbortError') alert(t('saveErr') + e.message); }
+  });
+
+  /* 다른 이름으로 저장 — OS 파일 탐색기로 위치/이름 선택 */
+  document.getElementById('sl-saveas').addEventListener('click', async () => {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: currentSite + '.json',
+        types: [{ description: 'CAPA Site JSON', accept: { 'application/json': ['.json'] } }],
+      });
+      const w = await handle.createWritable();
+      await w.write(JSON.stringify(buildFileData(), null, 2));
+      await w.close();
+      fileHandle = handle;
+      flashBtn('sl-saveas');
+    } catch(e) { if (e.name !== 'AbortError') alert(t('saveErr') + e.message); }
+  });
+
+  /* 불러오기 — JSON 파일 선택 후 현재 Site에 적용 */
+  document.getElementById('sl-load').addEventListener('click', async () => {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'CAPA Site JSON', accept: { 'application/json': ['.json'] } }],
+        multiple: false,
+      });
+      const data = JSON.parse(await (await handle.getFile()).text());
+      applyBasicRaw(data.basic || null);
+      opns = data.opns ? JSON.parse(JSON.stringify(data.opns)) : [makeOpn('OPN-001', 100)];
+      opns.forEach(opn => opn.processes.forEach(p => { if (!PROC_NAMES.includes(p.name)) p.name = 'NHOT'; }));
+      fileHandle = handle;
+      storeSave(); renderOpnList(); calc();
+    } catch(e) { if (e.name !== 'AbortError') alert(t('loadErr') + e.message); }
+  });
+
+  // ── 시계 ──
+  (function initClock() {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    document.getElementById('clock-tz').textContent = tz;
+    function tick() {
+      document.getElementById('clock-time').textContent =
+        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
+
+  // ── 언어 선택 ──
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.addEventListener('click', () => applyLang(btn.dataset.lang));
+    btn.classList.toggle('active', btn.dataset.lang === lang);
+  });
+  // 언어가 ko가 아니면 정적 요소 번역 초기화
+  if (lang !== 'ko') {
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.documentElement.lang = lang;
+  }
+
+  // ── 다크/라이트 모드 토글 ──
+  const themeToggle = document.getElementById('theme-toggle');
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    themeToggle.textContent = theme === 'light' ? '🌙' : '☀️';
+    localStorage.setItem('capa-theme', theme);
+  }
+  const savedTheme = localStorage.getItem('capa-theme') || 'dark';
+  applyTheme(savedTheme);
+  themeToggle.addEventListener('click', () => {
+    applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  });
+</script>
+</body>
+</html>
